@@ -55,3 +55,33 @@ class SequenceWithAnalysis(BaseModel):
 
     sequence: SequenceResponse
     analysis: AnalysisResult | None = None
+
+
+# ─── Auth ─────────────────────────────────────
+
+
+class UserCreate(BaseModel):
+    """Request body para registro de usuário."""
+
+    email: str = Field(..., min_length=5, max_length=255)
+    password: str = Field(..., min_length=8, max_length=128)
+    full_name: str | None = None
+
+
+class UserRead(BaseModel):
+    """Resposta com dados do usuário (sem senha)."""
+
+    id: UUID
+    email: str
+    full_name: str | None
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class Token(BaseModel):
+    """JWT token response."""
+
+    access_token: str
+    token_type: str = "bearer"
