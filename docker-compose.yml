@@ -1,0 +1,114 @@
+# Docker Compose for Bioinformatics Platform
+# Usage: docker compose up -d
+
+services:
+  # ─── API Service ────────────────────────────────────────────────────────────
+  # FastAPI application serving the REST API
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - bionet
+
+  # ─── Worker Service ─────────────────────────────────────────────────────────
+  # Celery/arq worker for background task processing (alignments, pipelines, etc.)
+  worker:
+    build:
+      context: ./apps/worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - bionet
+
+  # ─── PostgreSQL ─────────────────────────────────────────────────────────────
+  # Primary relational database for metadata, users, and experiment records
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - bionet
+
+  # ─── Redis ──────────────────────────────────────────────────────────────────
+  # In-memory store for caching, task queues, and pub/sub
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - bionet
+
+  # ─── Caddy ──────────────────────────────────────────────────────────────────
+  # Reverse proxy with automatic HTTPS via Let's Encrypt
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - bionet
+
+# ─── Networks ───────────────────────────────────────────────────────────────
+networks:
+  bionet:
+    driver: bridge
+
+# ─── Volumes ────────────────────────────────────────────────────────────────
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

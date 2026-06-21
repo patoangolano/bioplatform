@@ -1,0 +1,48 @@
+# Caddyfile — bioplatform reverse proxy
+#
+# Accepts requests on the domain specified by the DOMAIN environment variable.
+# Automatic HTTPS is enabled by default (Caddy handles certificate provisioning
+# and renewal via Let's Encrypt / ZeroSSL).
+#
+# Usage:
+#   DOMAIN=bio.example.com caddy run --config /path/to/Caddyfile
+#
+# In Docker Compose, set the DOMAIN env var in your .env file or compose config.
+
+{$DOMAIN} {
+	# --- Security headers -----------------------------------------------------
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		-Server
+	}
+
+	# --- Direct health endpoint (no upstream dependency) ----------------------
+	handle /health {
+		respond "OK" 200
+	}
+
+	# --- Reverse proxy to API service -----------------------------------------
+	handle {
+		reverse_proxy api:8000 {
+			# Pass original host and client IP
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+
+			# Health check for upstream
+			health_uri /health
+			health_interval 30s
+			health_timeout 5s
+		}
+	}
+
+	# --- Access logging -------------------------------------------------------
+	log {
+		output stdout
+		format json
+	}
+}
