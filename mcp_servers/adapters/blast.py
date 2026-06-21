@@ -98,14 +98,28 @@ async def get_blast_results(rid: str) -> list[BlastHit]:
     params = {
         "CMD": "Get",
         "FORMAT_TYPE": "JSON2",
+        "FORMAT_OBJECT": "Alignment",
         "RID": rid,
         **_api_key_params(),
     }
 
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        resp = await client.get(_BASE, params=params)
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.get(
+            _BASE,
+            params=params,
+            headers={"Accept": "application/json"},
+        )
         resp.raise_for_status()
-        data = resp.json()
+
+        # NCBI sometimes returns HTML or non-JSON; handle gracefully
+        content_type = resp.headers.get("content-type", "")
+        if "json" not in content_type and "javascript" not in content_type:
+            try:
+                data = resp.json()
+            except Exception:
+                return []
+        else:
+            data = resp.json()
 
     hits: list[BlastHit] = []
     try:
