@@ -28,10 +28,11 @@ services:
       - bionet
 
   # ─── Worker Service ─────────────────────────────────────────────────────────
-  # Celery/arq worker for background task processing (alignments, pipelines, etc.)
+  # arq worker for background task processing (BLAST, alignments, etc.)
   worker:
     build:
-      context: ./apps/worker
+      context: .
+      dockerfile: apps/worker/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
