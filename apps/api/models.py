@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, Float, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -18,16 +18,18 @@ class Sequence(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
     sequence_type: Mapped[str] = mapped_column(
-        String(20),
+        String(10),
         CheckConstraint("sequence_type IN ('DNA', 'RNA', 'protein')"),
         nullable=False,
     )
     raw_sequence: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
     organism: Mapped[str | None] = mapped_column(String(255))
-    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
@@ -38,18 +40,20 @@ class Job(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    sequence_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    sequence_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     job_type: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(
         String(20),
-        CheckConstraint("status IN ('pending', 'running', 'completed', 'failed')"),
+        CheckConstraint("status IN ('pending', 'running', 'completed', 'failed', 'cancelled')"),
         default="pending",
     )
-    parameters: Mapped[dict | None] = mapped_column(JSONB)
+    parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Result(Base):
@@ -61,6 +65,7 @@ class Result(Base):
     job_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     result_type: Mapped[str] = mapped_column(String(50), nullable=False)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -72,10 +77,10 @@ class ProvenanceRecord(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    job_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    tool_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    tool_version: Mapped[str] = mapped_column(String(50), nullable=False)
-    parameters: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    result_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    source_tool: Mapped[str] = mapped_column(String(100), nullable=False)
+    tool_version: Mapped[str | None] = mapped_column(String(50))
+    parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     output_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     classification: Mapped[str] = mapped_column(
@@ -83,6 +88,6 @@ class ProvenanceRecord(Base):
         CheckConstraint("classification IN ('observation', 'inference', 'hypothesis')"),
         nullable=False,
     )
-    created_at: Mapped[datetime] = mapped_column(
+    timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

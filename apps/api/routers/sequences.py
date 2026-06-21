@@ -50,25 +50,30 @@ async def _run_inline_analysis(
     provenance_records = []
 
     # Monta query de busca baseada no tipo de sequência
-    if sequence.sequence_type == "protein":
-        search_query = sequence.name
-        if sequence.organism:
-            search_query += f" AND {sequence.organism}"
-    else:
-        search_query = sequence.name
+    search_query = sequence.description or sequence.organism or "protein"
+    if sequence.organism and sequence.description:
+        search_query = f"{sequence.description} AND {sequence.organism}"
 
     # ─── UniProt search ───────────────────────────
     try:
         uniprot_results = await search_uniprot(search_query, limit=3)
         for entry in uniprot_results:
-            # Busca detalhes de cada match
             detail = await get_uniprot_entry(entry.accession)
             uniprot_matches.append(detail.model_dump())
 
-        # Proveniência UniProt
+        # Cria job + result + proveniência
+        job = await _create_job(sequence.id, "uniprot_search", db)
+        result = Result(
+            job_id=job.id,
+            result_type="uniprot_search",
+            data={"matches": uniprot_matches},
+        )
+        db.add(result)
+        await db.flush()
+
         prov = ProvenanceRecord(
-            job_id=(await _create_job(sequence.id, "uniprot_search", db)).id,
-            tool_name="uniprot_rest_api",
+            result_id=result.id,
+            source_tool="uniprot_rest_api",
             tool_version="2024.1",
             parameters={"query": search_query, "limit": 3},
             input_hash=_hash_content(search_query),
@@ -82,14 +87,24 @@ async def _run_inline_analysis(
 
     # ─── PubMed search ────────────────────────────
     try:
-        pubmed_query = f"{sequence.name} {sequence.organism or ''}".strip()
+        pubmed_query = f"{sequence.description or ''} {sequence.organism or ''}".strip()
+        if not pubmed_query:
+            pubmed_query = "bioinformatics"
         pubmed_results = await search_pubmed(pubmed_query, max_results=5)
         literature = [article.model_dump() for article in pubmed_results]
 
-        # Proveniência PubMed
+        job = await _create_job(sequence.id, "pubmed_search", db)
+        result = Result(
+            job_id=job.id,
+            result_type="pubmed_search",
+            data={"articles": literature},
+        )
+        db.add(result)
+        await db.flush()
+
         prov = ProvenanceRecord(
-            job_id=(await _create_job(sequence.id, "pubmed_search", db)).id,
-            tool_name="ncbi_eutils",
+            result_id=result.id,
+            source_tool="ncbi_eutils",
             tool_version="2.0",
             parameters={"query": pubmed_query, "max_results": 5},
             input_hash=_hash_content(pubmed_query),
@@ -108,7 +123,7 @@ async def _run_inline_analysis(
         literature=literature,
         provenance=[
             {
-                "tool": p.tool_name,
+                "tool": p.source_tool,
                 "classification": p.classification,
                 "input_hash": p.input_hash[:12] + "...",
             }
@@ -141,7 +156,7 @@ async def submit_sequence(
     """
     # Persiste sequência
     seq = Sequence(
-        name=payload.name,
+        description=payload.description,
         sequence_type=payload.sequence_type,
         raw_sequence=payload.raw_sequence,
         organism=payload.organism,

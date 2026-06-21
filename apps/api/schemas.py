@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 class SequenceCreate(BaseModel):
     """Request body para submissão de sequência."""
 
-    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=500)
     sequence_type: Literal["DNA", "RNA", "protein"]
     raw_sequence: str = Field(..., min_length=1)
     organism: str | None = None
@@ -27,7 +27,7 @@ class SequenceResponse(BaseModel):
     """Resposta com dados da sequência armazenada."""
 
     id: UUID
-    name: str
+    description: str | None
     sequence_type: str
     raw_sequence: str
     organism: str | None
