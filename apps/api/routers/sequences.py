@@ -30,6 +30,9 @@ for _ancestor in _this_file.parents:
 
 from mcp_servers.adapters.uniprot import get_uniprot_entry, search_uniprot
 from mcp_servers.adapters.pubmed import search_pubmed
+from mcp_servers.adapters.interpro import search_interpro
+from mcp_servers.adapters.alphafold import get_structure_prediction
+from mcp_servers.adapters.string_db import get_interaction_partners
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +50,9 @@ async def _run_inline_analysis(
     """Executa análise inline: busca UniProt + literatura PubMed."""
     uniprot_matches = []
     literature = []
+    interpro_domains = []
+    alphafold_structures = []
+    string_interactions = []
     provenance_records = []
 
     # Monta query de busca baseada no tipo de sequência
@@ -116,11 +122,110 @@ async def _run_inline_analysis(
     except Exception as e:
         logger.warning(f"PubMed analysis failed: {e}")
 
+    # ─── InterPro domain search ───────────────────
+    try:
+        interpro_query = sequence.description or sequence.organism or "protein"
+        interpro_results = await search_interpro(interpro_query, limit=5)
+        interpro_domains = [entry.model_dump() for entry in interpro_results]
+
+        job = await _create_job(sequence.id, "interpro_search", db)
+        result = Result(
+            job_id=job.id,
+            result_type="interpro_search",
+            data={"domains": interpro_domains},
+        )
+        db.add(result)
+        await db.flush()
+
+        prov = ProvenanceRecord(
+            result_id=result.id,
+            source_tool="interpro_api",
+            tool_version="7.0",
+            parameters={"query": interpro_query, "limit": 5},
+            input_hash=_hash_content(interpro_query),
+            output_hash=_hash_content(str(interpro_domains)),
+            classification="observation",
+        )
+        db.add(prov)
+        provenance_records.append(prov)
+    except Exception as e:
+        logger.warning(f"InterPro analysis failed: {e}")
+
+    # ─── AlphaFold structure prediction ───────────
+    try:
+        # Use first UniProt match accession if available
+        if uniprot_matches:
+            af_accession = uniprot_matches[0].get("accession", "")
+            if af_accession:
+                af_result = await get_structure_prediction(af_accession)
+                if af_result:
+                    alphafold_structures = [af_result.model_dump()]
+
+                    job = await _create_job(sequence.id, "alphafold_lookup", db)
+                    result = Result(
+                        job_id=job.id,
+                        result_type="alphafold_prediction",
+                        data={"structures": alphafold_structures},
+                        confidence=af_result.plddt_confidence,
+                    )
+                    db.add(result)
+                    await db.flush()
+
+                    prov = ProvenanceRecord(
+                        result_id=result.id,
+                        source_tool="alphafold_db",
+                        tool_version="4.0",
+                        parameters={"uniprot_id": af_accession},
+                        input_hash=_hash_content(af_accession),
+                        output_hash=_hash_content(str(alphafold_structures)),
+                        classification="inference",
+                    )
+                    db.add(prov)
+                    provenance_records.append(prov)
+    except Exception as e:
+        logger.warning(f"AlphaFold analysis failed: {e}")
+
+    # ─── STRING interactions ──────────────────────
+    try:
+        string_query = sequence.description or ""
+        if string_query and sequence.sequence_type == "protein":
+            # Extract first word as protein name for STRING
+            protein_name = string_query.split()[0] if string_query else ""
+            if protein_name:
+                interactions = await get_interaction_partners(protein_name, limit=5)
+                string_interactions = [i.model_dump() for i in interactions]
+
+                job = await _create_job(sequence.id, "string_interactions", db)
+                result = Result(
+                    job_id=job.id,
+                    result_type="string_interactions",
+                    data={"interactions": string_interactions},
+                )
+                db.add(result)
+                await db.flush()
+
+                prov = ProvenanceRecord(
+                    result_id=result.id,
+                    source_tool="string_db",
+                    tool_version="12.0",
+                    parameters={"protein": protein_name, "species": 9606, "limit": 5},
+                    input_hash=_hash_content(protein_name),
+                    output_hash=_hash_content(str(string_interactions)),
+                    classification="observation",
+                )
+                db.add(prov)
+                provenance_records.append(prov)
+    except Exception as e:
+        logger.warning(f"STRING analysis failed: {e}")
+
     await db.commit()
 
     return AnalysisResult(
         uniprot_matches=uniprot_matches,
         literature=literature,
+        interpro_domains=interpro_domains,
+        alphafold_structures=alphafold_structures,
+        string_interactions=string_interactions,
         provenance=[
             {
                 "tool": p.source_tool,

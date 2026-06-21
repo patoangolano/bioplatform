@@ -44,6 +44,9 @@ class AnalysisResult(BaseModel):
 
     uniprot_matches: list[dict] = Field(default_factory=list)
     literature: list[dict] = Field(default_factory=list)
+    interpro_domains: list[dict] = Field(default_factory=list)
+    alphafold_structures: list[dict] = Field(default_factory=list)
+    string_interactions: list[dict] = Field(default_factory=list)
     provenance: list[dict] = Field(default_factory=list)
 
 
