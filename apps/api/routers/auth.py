@@ -1,7 +1,5 @@
 """Authentication router: register, login, get current user."""
 
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
