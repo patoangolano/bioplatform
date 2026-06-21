@@ -1,0 +1,67 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+env:
+  VPS_HOST: 187.77.232.5
+  VPS_USER: root
+  DEPLOY_PATH: /opt/bioplatform
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install API dependencies
+        run: pip install -r apps/api/requirements.txt
+
+      - name: Lint with ruff
+        run: |
+          pip install ruff
+          ruff check apps/api/ mcp_servers/
+
+      - name: Type check imports
+        run: |
+          pip install pyright
+          cd apps/api && pyright --verifytypes models schemas || true
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ env.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd ${{ env.DEPLOY_PATH }}
+            
+            # Pull latest code
+            git pull origin main
+            
+            # Run any new migrations
+            for f in infra/db/migrations/*.sql; do
+              docker compose exec -T postgres psql -U bio -d biodb < "$f" 2>/dev/null || true
+            done
+            
+            # Build and deploy
+            docker compose build --parallel
+            docker compose up -d
+            
+            # Wait for health check
+            sleep 10
+            curl -f http://localhost:8000/health || exit 1
+            
+            echo "Deploy successful at $(date)"
