@@ -9,6 +9,7 @@ from database import engine
 from routers.sequences import router as sequences_router
 from routers.auth import router as auth_router
 from routers.blast import router as blast_router
+from routers.admin import router as admin_router
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(sequences_router, prefix="/api/v1")
 app.include_router(blast_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
 
 
 @app.get("/health")

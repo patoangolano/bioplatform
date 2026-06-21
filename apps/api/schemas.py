@@ -75,6 +75,7 @@ class UserRead(BaseModel):
     email: str
     full_name: str | None
     is_active: bool
+    is_admin: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -85,3 +86,25 @@ class Token(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+# ─── Admin ───────────────────────────────────
+
+
+class AdminUserUpdate(BaseModel):
+    """Request body para atualização de usuário pelo admin."""
+
+    is_active: bool | None = None
+    is_admin: bool | None = None
+    full_name: str | None = None
+
+
+class PlatformStats(BaseModel):
+    """Estatísticas gerais da plataforma."""
+
+    total_users: int
+    total_sequences: int
+    total_jobs: int
+    active_jobs: int
+    completed_jobs: int
+    failed_jobs: int
