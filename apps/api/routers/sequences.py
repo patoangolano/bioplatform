@@ -34,6 +34,9 @@ from mcp_servers.adapters.interpro import search_interpro
 from mcp_servers.adapters.alphafold import get_structure_prediction
 from mcp_servers.adapters.string_db import get_interaction_partners
 
+from services.biosafety.screener import screen_sequence
+from services.biosafety.models import RiskLevel
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/sequences", tags=["sequences"])
@@ -259,6 +262,24 @@ async def submit_sequence(
     A análise consulta UniProt e PubMed em tempo real, armazena resultados
     e registra proveniência de cada operação.
     """
+    # ─── Screening de biossegurança (pré-persistência) ──────────
+    biosafety_result = await screen_sequence(
+        raw_sequence=payload.raw_sequence,
+        sequence_type=payload.sequence_type,
+        organism=payload.organism,
+    )
+
+    if biosafety_result.risk_level == RiskLevel.CRITICAL:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "Sequência bloqueada por screening de biossegurança",
+                "risk_level": biosafety_result.risk_level.value,
+                "flags": [f.model_dump() for f in biosafety_result.flags],
+                "recommendation": biosafety_result.recommendation,
+            },
+        )
+
     # Persiste sequência
     seq = Sequence(
         description=payload.description,
@@ -268,6 +289,27 @@ async def submit_sequence(
     )
     db.add(seq)
     await db.flush()
+
+    # Se risco HIGH, registra flag de proveniência como alerta
+    if biosafety_result.risk_level == RiskLevel.HIGH:
+        prov_warning = ProvenanceRecord(
+            result_id=None,
+            source_tool="biosafety_screener",
+            tool_version=biosafety_result.screening_version,
+            parameters={
+                "sequence_type": payload.sequence_type,
+                "organism": payload.organism,
+            },
+            input_hash=_hash_content(payload.raw_sequence),
+            output_hash=_hash_content(str(biosafety_result.flags)),
+            classification="observation",
+        )
+        prov_warning.sequence_id = seq.id
+        db.add(prov_warning)
+        logger.warning(
+            f"Biosafety HIGH risk for sequence {seq.id}: "
+            f"{[f.code for f in biosafety_result.flags]}"
+        )
 
     # Análise inline se solicitada
     analysis = None

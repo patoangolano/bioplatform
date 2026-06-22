@@ -41,6 +41,9 @@
 | 📊 Análise Inline | UniProt + PubMed + InterPro + AlphaFold + STRING |
 | 📜 Proveniência | Rastreio completo: ferramenta, versão, hash, timestamp |
 | 👑 Admin Panel | Gestão de usuários, estatísticas, sequências, jobs |
+| 🛡️ Biossegurança | Screening de sequências contra Select Agents (CDC/USDA) |
+| 📋 Regulatório GxP | Geração de documentos (protocolo, SAP, TCLE) — Anvisa/ICH |
+| 🧪 ESM3 Adapter | Predição de estrutura e mutações via modelos de proteínas |
 | 🚀 CI/CD | GitHub Actions → lint → deploy automático |
 | 🔒 HTTPS | Certificado Let's Encrypt via Caddy |
 
@@ -88,6 +91,12 @@
 | DELETE | `/api/v1/admin/users/{id}` | Remover usuário |
 | GET | `/api/v1/admin/sequences` | Todas as sequências |
 | GET | `/api/v1/admin/jobs` | Todos os jobs |
+
+### Regulatory (requer autenticação)
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/api/v1/regulatory/templates` | Templates disponíveis |
+| POST | `/api/v1/regulatory/generate` | Gerar documento regulatório |
 
 ## Quick Start (Local)
 
@@ -182,14 +191,18 @@ Servidores MCP para integração com Claude Code:
 
 ## Próximos Passos
 
+- [x] Screening de biossegurança (Select Agents CDC/USDA)
+- [x] Geração de documentos regulatórios GxP (Anvisa Sandbox)
+- [x] Adapter ESM3 para predição de mutações
 - [ ] Visualização 3D de proteínas (3Dmol.js)
 - [ ] Classificação filogenética
+- [ ] Multi-ômica espacial e grafos de conhecimento
+- [ ] Integração Prefect (DAGs Python nativos)
+- [ ] Redis vetorial (embeddings + cache de contexto MCP)
+- [ ] Skills institucionais para Claude Code
 - [ ] Mapeamento geográfico de organismos
-- [ ] Sequências relacionadas (grafo)
 - [ ] Reações bioquímicas (KEGG)
-- [ ] Predição de mutações (ESM3/Evo)
-- [ ] Prefect para orquestração de workflows
-- [ ] Cache Redis para APIs externas
+- [ ] Submissão no Sandbox Regulatório Anvisa
 
 ---
 

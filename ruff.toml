@@ -1,8 +1,8 @@
 [lint]
 # E402: Module level import not at top of file
-# Needed because routers/sequences.py and worker/main.py use sys.path manipulation
-# before importing mcp_servers adapters
-per-file-ignores = { "apps/api/routers/sequences.py" = ["E402"], "apps/worker/main.py" = ["E402"] }
+# Needed because routers use sys.path manipulation before importing
+# mcp_servers adapters and services modules
+per-file-ignores = { "apps/api/routers/sequences.py" = ["E402"], "apps/worker/main.py" = ["E402"], "apps/api/routers/regulatory.py" = ["E402"] }
 
 [lint.isort]
 known-first-party = ["mcp_servers"]
