@@ -325,17 +325,76 @@ async def submit_sequence(
     )
 
 
-@router.get("/{sequence_id}", response_model=SequenceResponse)
+@router.get("/{sequence_id}", response_model=SequenceWithAnalysis)
 async def get_sequence(
     sequence_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Recupera uma sequência pelo ID."""
+    """Recupera uma sequência pelo ID com resultados de análise."""
     result = await db.execute(select(Sequence).where(Sequence.id == sequence_id))
     seq = result.scalar_one_or_none()
     if not seq:
         raise HTTPException(status_code=404, detail="Sequence not found")
-    return SequenceResponse.model_validate(seq)
+
+    # Busca resultados de análise associados (via jobs)
+    jobs_result = await db.execute(
+        select(Job).where(Job.sequence_id == sequence_id)
+    )
+    jobs = jobs_result.scalars().all()
+
+    analysis = None
+    if jobs:
+        uniprot_matches = []
+        literature = []
+        interpro_domains = []
+        alphafold_structures = []
+        string_interactions = []
+        provenance = []
+
+        for job in jobs:
+            results_q = await db.execute(
+                select(Result).where(Result.job_id == job.id)
+            )
+            for res in results_q.scalars().all():
+                data = res.data or {}
+                if res.result_type == "uniprot_search":
+                    uniprot_matches = data.get("matches", [])
+                elif res.result_type == "pubmed_search":
+                    literature = data.get("articles", [])
+                elif res.result_type == "interpro_search":
+                    interpro_domains = data.get("domains", [])
+                elif res.result_type == "alphafold_prediction":
+                    alphafold_structures = data.get("structures", [])
+                elif res.result_type == "string_interactions":
+                    string_interactions = data.get("interactions", [])
+
+            # Provenance records
+            prov_q = await db.execute(
+                select(ProvenanceRecord).where(ProvenanceRecord.result_id.in_(
+                    select(Result.id).where(Result.job_id == job.id)
+                ))
+            )
+            for p in prov_q.scalars().all():
+                provenance.append({
+                    "source_tool": p.source_tool,
+                    "tool_version": p.tool_version,
+                    "classification": p.classification,
+                    "timestamp": p.timestamp.isoformat() if p.timestamp else None,
+                })
+
+        analysis = AnalysisResult(
+            uniprot_matches=uniprot_matches,
+            literature=literature,
+            interpro_domains=interpro_domains,
+            alphafold_structures=alphafold_structures,
+            string_interactions=string_interactions,
+            provenance=provenance,
+        )
+
+    return SequenceWithAnalysis(
+        sequence=SequenceResponse.model_validate(seq),
+        analysis=analysis,
+    )
 
 
 @router.get("", response_model=list[SequenceResponse])
