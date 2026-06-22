@@ -252,7 +252,7 @@ async def _create_job(sequence_id: UUID, job_type: str, db: AsyncSession) -> Job
     await db.flush()
     return job
 
-@router.post("/", response_model=SequenceWithAnalysis, status_code=201)
+@router.post("", response_model=SequenceWithAnalysis, status_code=201)
 async def submit_sequence(
     payload: SequenceCreate,
     db: AsyncSession = Depends(get_db),
@@ -338,7 +338,7 @@ async def get_sequence(
     return SequenceResponse.model_validate(seq)
 
 
-@router.get("/", response_model=list[SequenceResponse])
+@router.get("", response_model=list[SequenceResponse])
 async def list_sequences(
     limit: int = 20,
     offset: int = 0,
