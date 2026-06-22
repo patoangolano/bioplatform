@@ -29,13 +29,24 @@ infra/             — scripts de deploy, Docker, proxy
 
 - Python 3.11+, FastAPI, PostgreSQL, Redis
 - Docker Compose, Caddy (reverse proxy)
-- Prefect (futuro — orquestração de workflows)
+- Prefect 3.x (orquestração de workflows multi-step)
+- Cache Redis com TTL por adapter (UniProt 24h, PubMed 2h, AlphaFold 7d)
 
 ## Deploy
 
 - Target: VPS Hostinger KVM8 (Ubuntu)
 - Proxy: Caddy com HTTPS automático
 - Containers: Docker Compose em produção
+- CI/CD: GitHub Actions (ruff lint → SSH deploy)
+
+## Skills (Protocolos Institucionais)
+
+Carregar protocolos de `skills/` para padronizar análises:
+- `skills/protocols/` — workflows passo-a-passo (BLAST, caracterização, literatura)
+- `skills/thresholds/` — limiares numéricos (e-value, pLDDT, STRING scores)
+- `skills/templates/` — formatos de relatório com proveniência
+
+Ao executar análises, seguir os thresholds e classificações definidos nos skills.
 
 ## MCP Servers disponíveis
 
