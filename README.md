@@ -1,92 +1,202 @@
-# Bio Science MCP Server
+# 🧬 QuackAI BioLab
 
-MCP server for bioinformatics queries — PubMed, UniProt, and InterPro integration for Claude Code.
+**Plataforma de orquestração translacional bioinformática**
 
-## Status
+> Análise de sequências biológicas com proveniência completa, busca BLAST assíncrona, integração com bancos públicos (UniProt, PubMed, InterPro, AlphaFold, STRING) e deploy automatizado.
 
-**v0.1.0 — Initial implementation.** This is a functional MCP server using a minimal JSON-RPC 2.0 stdio transport. It does not depend on an external MCP SDK; the protocol loop is self-contained.
+🔗 **Live:** [bio.quackai.com.br](https://bio.quackai.com.br)  
+📖 **Docs:** [bio.quackai.com.br/docs](https://bio.quackai.com.br/docs)
 
-## Tools Available
+---
 
-| Tool | Description |
-|------|-------------|
-| `search_pubmed` | Search PubMed articles by query |
-| `get_pubmed_abstract` | Get full abstract by PMID |
-| `search_uniprot` | Search UniProt protein entries |
-| `get_uniprot_entry` | Get detailed protein entry by accession |
-| `search_interpro` | Search InterPro families/domains |
+## Arquitetura
 
-## Installation (Windows PowerShell)
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Caddy (HTTPS/LE)                      │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌──────────┐   ┌──────────┐   ┌──────────────────┐   │
+│  │ FastAPI  │   │  Worker  │   │   PostgreSQL     │   │
+│  │  (API)   │◄──┤  (BLAST) │──►│   (biodb)        │   │
+│  └────┬─────┘   └──────────┘   └──────────────────┘   │
+│       │                                                 │
+│       ▼                                                 │
+│  ┌──────────────────────────────────────────────┐      │
+│  │        External APIs (async)                  │      │
+│  │  UniProt · PubMed · InterPro · AlphaFold     │      │
+│  │  STRING · NCBI BLAST                          │      │
+│  └──────────────────────────────────────────────┘      │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
 
-```powershell
-# From the bioplatform root directory:
-cd C:\Users\Manec\bioplatform
+## Features
 
-# Create virtual environment (recommended)
+| Feature | Descrição |
+|---------|-----------|
+| 🔐 Auth JWT | Registro, login, tokens 24h |
+| 🧬 Sequences CRUD | Submissão de DNA/RNA/proteína com análise inline |
+| 🔍 BLAST Assíncrono | Submit → poll → resultados via NCBI BLAST |
+| 📊 Análise Inline | UniProt + PubMed + InterPro + AlphaFold + STRING |
+| 📜 Proveniência | Rastreio completo: ferramenta, versão, hash, timestamp |
+| 👑 Admin Panel | Gestão de usuários, estatísticas, sequências, jobs |
+| 🚀 CI/CD | GitHub Actions → lint → deploy automático |
+| 🔒 HTTPS | Certificado Let's Encrypt via Caddy |
+
+## Stack Tecnológico
+
+| Camada | Tecnologia |
+|--------|------------|
+| Backend | Python 3.11, FastAPI, SQLAlchemy 2.0 (async) |
+| Database | PostgreSQL 16 |
+| Auth | JWT (python-jose), bcrypt |
+| Worker | asyncio + NCBI BLAST REST |
+| Proxy | Caddy 2 (auto-HTTPS) |
+| Deploy | Docker Compose, GitHub Actions |
+| VPS | Ubuntu 24.04, KVM 4CPU/16GB |
+
+## Endpoints da API
+
+### Auth
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/api/v1/auth/register` | Criar conta |
+| POST | `/api/v1/auth/login` | Login (form-urlencoded) |
+| GET | `/api/v1/auth/me` | Perfil do usuário autenticado |
+
+### Sequences
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/api/v1/sequences` | Submeter sequência (+ análise inline) |
+| GET | `/api/v1/sequences` | Listar sequências |
+| GET | `/api/v1/sequences/{id}` | Detalhes de uma sequência |
+
+### BLAST
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/api/v1/blast/submit` | Submeter job BLAST |
+| GET | `/api/v1/blast/jobs` | Listar jobs |
+| GET | `/api/v1/blast/jobs/{id}` | Status + resultados |
+
+### Admin (requer `is_admin=true`)
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/api/v1/admin/stats` | Estatísticas da plataforma |
+| GET | `/api/v1/admin/users` | Listar usuários |
+| PATCH | `/api/v1/admin/users/{id}` | Atualizar usuário |
+| DELETE | `/api/v1/admin/users/{id}` | Remover usuário |
+| GET | `/api/v1/admin/sequences` | Todas as sequências |
+| GET | `/api/v1/admin/jobs` | Todos os jobs |
+
+## Quick Start (Local)
+
+```bash
+# Clonar
+git clone https://github.com/patoangolano/bioplatform.git
+cd bioplatform
+
+# Ambiente virtual
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\Activate.ps1  # Windows
 
-# Install dependencies
-pip install -r requirements-mcp.txt
+# Dependências
+pip install -r apps/api/requirements.txt
+
+# Variáveis de ambiente
+cp .env.example .env
+# Editar .env com suas credenciais
+
+# Subir com Docker
+docker compose up -d
 ```
 
-## Running Manually (for testing)
+## Deploy (Produção)
 
-```powershell
-python -m mcp_servers.bio_science_mcp
+O deploy é automático via GitHub Actions em cada push na `main`:
+
+1. **Lint** — ruff check em `apps/api/` e `mcp_servers/`
+2. **SSH Deploy** — pull + migrate + build + up
+3. **Health Check** — `curl http://localhost:8000/health`
+
+```yaml
+# .github/workflows/deploy.yml
+on:
+  push:
+    branches: [main]
 ```
 
-The server reads JSON-RPC messages from stdin and writes responses to stdout. It's designed to be launched by Claude Code, not used interactively.
-
-## Registering in Claude Code
-
-The `.mcp.json` in this repository already includes the `scientific-bio` entry. If you need to add it manually:
-
-```json
-{
-  "mcpServers": {
-    "scientific-bio": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["-m", "mcp_servers.bio_science_mcp"]
-    }
-  }
-}
-```
-
-## Environment Variables (optional)
-
-| Variable | Purpose |
-|----------|---------|
-| `NCBI_API_KEY` | Increases PubMed rate limit from 3 to 10 req/s |
-
-## Project Structure
+## Estrutura do Projeto
 
 ```
-mcp_servers/
-  __init__.py
-  __main__.py            # Entry point for python -m
-  bio_science_mcp.py     # MCP server loop + tool registry
-  models.py              # Pydantic response models
-  adapters/
-    __init__.py
-    pubmed.py            # NCBI E-utilities adapter
-    uniprot.py           # UniProt REST API adapter
-    interpro.py          # InterPro API adapter
+bioplatform/
+├── apps/
+│   ├── api/              # FastAPI backend
+│   │   ├── main.py       # App + middleware
+│   │   ├── models.py     # SQLAlchemy models
+│   │   ├── schemas.py    # Pydantic schemas
+│   │   ├── auth.py       # JWT + dependencies
+│   │   ├── database.py   # Async engine
+│   │   ├── config.py     # Settings
+│   │   └── routers/      # auth, sequences, blast, admin
+│   └── worker/           # BLAST async processor
+├── mcp_servers/          # MCP servers para Claude Code
+│   ├── bio_science_mcp.py
+│   └── adapters/         # pubmed, uniprot, interpro, blast...
+├── infra/
+│   ├── docker-compose.yml
+│   ├── Caddyfile
+│   └── db/migrations/    # SQL migrations
+├── .github/workflows/    # CI/CD
+└── services/             # Módulos de domínio (futuro)
 ```
 
-## Limitations
+## Princípios de Design
 
-- No streaming; responses are returned in full.
-- InterPro search is full-text only (no boolean operators).
-- PubMed XML parsing uses `defusedxml` for security.
-- No caching layer yet — every call hits the upstream API.
-- Rate limiting relies on upstream API defaults (no client-side throttle).
+1. **Proveniência obrigatória** — todo resultado rastreia origem
+2. **Separação epistêmica** — observação ≠ inferência ≠ hipótese
+3. **Modularidade** — adapters isolados, fácil de estender
+4. **Biossegurança** — classificação de risco em organismos
+5. **Reprodutibilidade** — mesmos inputs → mesmos outputs
+6. **Deploy-first** — infra e app pensadas juntas desde o dia 1
 
-## Next Steps
+## MCP Servers
 
-- Add BLAST sequence search adapter
-- Add caching (Redis or local TTL cache)
-- Add PDB/AlphaFold structure lookup
-- Integrate with the `postgres` MCP for local provenance storage
-- Add proper MCP SDK once a stable Python SDK is adopted
+Servidores MCP para integração com Claude Code:
+
+| Server | Ferramentas |
+|--------|-------------|
+| `scientific-bio` | PubMed, UniProt, InterPro, AlphaFold, BLAST, STRING |
+| `hostinger-api` | Gerenciamento VPS |
+| `postgres` | Queries e migrações |
+| `docker` | Gerenciamento de containers |
+
+## Timeline de Desenvolvimento
+
+| Data | Marco |
+|------|-------|
+| 2025-06-21 | Monorepo + API + Auth + DB + Deploy |
+| 2025-06-21 | BLAST worker + Admin panel + CI/CD |
+| 2025-06-22 | CORS fix + Frontend PT-BR + DNS |
+
+## Próximos Passos
+
+- [ ] Visualização 3D de proteínas (3Dmol.js)
+- [ ] Classificação filogenética
+- [ ] Mapeamento geográfico de organismos
+- [ ] Sequências relacionadas (grafo)
+- [ ] Reações bioquímicas (KEGG)
+- [ ] Predição de mutações (ESM3/Evo)
+- [ ] Prefect para orquestração de workflows
+- [ ] Cache Redis para APIs externas
+
+---
+
+## Licença
+
+MIT
+
+## Autor
+
+**Matheus Angolano** — [@patoangolano](https://github.com/patoangolano)
