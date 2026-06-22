@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import httpx
 
+from mcp_servers.cache import cached
 from mcp_servers.models import InterProEntrySummary
 
 _BASE = "https://www.ebi.ac.uk/interpro/api"
 _TIMEOUT = 15.0
 
 
+@cached(ttl=86400, prefix="interpro", model=InterProEntrySummary, is_list=True)
 async def search_interpro(
     query: str,
     limit: int = 5,

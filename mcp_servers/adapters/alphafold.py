@@ -16,12 +16,14 @@ from typing import Optional
 
 import httpx
 
+from mcp_servers.cache import cached
 from mcp_servers.models import AlphaFoldPrediction
 
 _BASE = "https://alphafold.ebi.ac.uk/api"
 _TIMEOUT = 15.0
 
 
+@cached(ttl=604800, prefix="alphafold", model=AlphaFoldPrediction)
 async def get_structure_prediction(
     uniprot_id: str,
 ) -> Optional[AlphaFoldPrediction]:

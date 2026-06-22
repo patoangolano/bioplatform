@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import httpx
 
+from mcp_servers.cache import cached
 from mcp_servers.models import UniProtEntryDetail, UniProtEntrySummary
 
 _BASE = "https://rest.uniprot.org/uniprotkb"
 _TIMEOUT = 15.0
 
 
+@cached(ttl=21600, prefix="uniprot", model=UniProtEntrySummary, is_list=True)
 async def search_uniprot(
     query: str,
     limit: int = 5,
@@ -64,6 +66,7 @@ async def search_uniprot(
     return results
 
 
+@cached(ttl=86400, prefix="uniprot", model=UniProtEntryDetail)
 async def get_uniprot_entry(accession: str) -> UniProtEntryDetail:
     """Retrieve detailed entry by accession."""
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:

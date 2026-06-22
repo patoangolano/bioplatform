@@ -1,0 +1,23 @@
+# Limiares de qualidade AlphaFold (pLDDT)
+# pLDDT: predicted Local Distance Difference Test (0-100)
+
+very_high:
+  plddt_min: 90
+  description: "Confiança muito alta — estrutura confiável para design molecular"
+  interpretation: "Backbone e sidechain provavelmente corretos"
+
+high:
+  plddt_min: 70
+  description: "Confiança alta — backbone correto, sidechains podem variar"
+  interpretation: "Fold global confiável, loops podem diferir"
+
+low:
+  plddt_min: 50
+  description: "Confiança baixa — estrutura incerta"
+  interpretation: "Pode ser região flexível ou desordenada"
+
+very_low:
+  plddt_min: 0
+  plddt_max: 50
+  description: "Confiança muito baixa — provavelmente desordenado"
+  interpretation: "Região intrinsecamente desordenada (IDR) ou artefato de predição"

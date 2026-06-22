@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import httpx
 
+from mcp_servers.cache import cached
 from mcp_servers.models import StringInteraction, StringEnrichment
 
 _BASE = "https://string-db.org/api/json"
@@ -22,6 +23,7 @@ _TIMEOUT = 20.0
 _CALLER_ID = "bioplatform_quackai"
 
 
+@cached(ttl=43200, prefix="string", model=StringInteraction, is_list=True)
 async def get_interaction_partners(
     protein: str,
     species: int = 9606,
@@ -67,6 +69,7 @@ async def get_interaction_partners(
     return interactions
 
 
+@cached(ttl=43200, prefix="string", model=StringEnrichment, is_list=True)
 async def get_functional_enrichment(
     proteins: list[str],
     species: int = 9606,

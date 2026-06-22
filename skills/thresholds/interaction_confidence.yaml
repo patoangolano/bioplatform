@@ -1,0 +1,22 @@
+# Limiares de confiança STRING
+# Score combinado: 0-1000
+
+highest:
+  min_score: 900
+  description: "Confiança máxima — interações validadas experimentalmente"
+  use_case: "Publicação, dados para artigo"
+
+high:
+  min_score: 700
+  description: "Alta confiança — evidência experimental + text mining"
+  use_case: "Análise de rede funcional, hipóteses"
+
+medium:
+  min_score: 400
+  description: "Confiança média — inclui predições computacionais"
+  use_case: "Exploração inicial, descoberta de parceiros"
+
+low:
+  min_score: 150
+  description: "Baixa confiança — qualquer evidência"
+  use_case: "Screening amplo, geração de hipóteses"

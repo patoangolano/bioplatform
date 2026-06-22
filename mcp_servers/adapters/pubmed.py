@@ -16,6 +16,7 @@ from defusedxml import ElementTree
 
 import httpx
 
+from mcp_servers.cache import cached
 from mcp_servers.models import PubMedAbstract, PubMedArticleSummary
 
 _BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
@@ -27,6 +28,7 @@ def _api_key_params() -> dict[str, str]:
     return {"api_key": key} if key else {}
 
 
+@cached(ttl=7200, prefix="pubmed", model=PubMedArticleSummary, is_list=True)
 async def search_pubmed(
     query: str,
     max_results: int = 5,
@@ -77,6 +79,7 @@ async def search_pubmed(
     return articles
 
 
+@cached(ttl=604800, prefix="pubmed", model=PubMedAbstract)
 async def get_pubmed_abstract(pmid: str) -> PubMedAbstract:
     """Retrieve full abstract for a given PMID via efetch (XML)."""
     params = {

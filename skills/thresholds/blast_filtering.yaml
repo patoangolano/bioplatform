@@ -1,0 +1,20 @@
+# Limiares de filtragem BLAST
+# Usado por pipelines de análise e contexto Claude Code
+
+strict:
+  evalue_max: 1.0e-10
+  identity_pct_min: 50.0
+  coverage_pct_min: 80.0
+  description: "Apenas homólogos de alta confiança"
+
+standard:
+  evalue_max: 1.0e-5
+  identity_pct_min: 30.0
+  coverage_pct_min: 70.0
+  description: "Busca de homologia padrão"
+
+exploratory:
+  evalue_max: 1.0e-3
+  identity_pct_min: 20.0
+  coverage_pct_min: 50.0
+  description: "Busca ampla incluindo homólogos distantes"
