@@ -1,11 +1,20 @@
 # 🧬 QuackAI BioLab
 
+[![CI/CD](https://github.com/patoangolano/bioplatform/actions/workflows/deploy.yml/badge.svg)](https://github.com/patoangolano/bioplatform/actions)
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green.svg)](https://fastapi.tiangolo.com/)
+[![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
+[![Redis 7](https://img.shields.io/badge/Redis-7-DC382D.svg)](https://redis.io/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://docs.docker.com/compose/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **Plataforma de orquestração translacional bioinformática**
 
-> Análise de sequências biológicas com proveniência completa, busca BLAST assíncrona, integração com bancos públicos (UniProt, PubMed, InterPro, AlphaFold, STRING) e deploy automatizado.
+> Análise de sequências biológicas com proveniência completa, busca BLAST assíncrona, integração com bancos públicos (UniProt, PubMed, InterPro, AlphaFold, STRING), screening de biossegurança, geração de documentos regulatórios GxP e deploy automatizado.
 
 🔗 **Live:** [bio.quackai.com.br](https://bio.quackai.com.br)  
-📖 **Docs:** [bio.quackai.com.br/docs](https://bio.quackai.com.br/docs)
+📖 **API Docs:** [bio.quackai.com.br/docs](https://bio.quackai.com.br/docs)  
+🖥️ **Frontend:** [Hostinger Horizons](https://bio.quackai.com.br)
 
 ---
 
@@ -53,11 +62,14 @@
 |--------|------------|
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2.0 (async) |
 | Database | PostgreSQL 16 |
+| Cache | Redis 7 (TTL por adapter: 2h–7d) |
 | Auth | JWT (python-jose), bcrypt |
-| Worker | asyncio + NCBI BLAST REST |
-| Proxy | Caddy 2 (auto-HTTPS) |
-| Deploy | Docker Compose, GitHub Actions |
+| Worker | arq (Redis queue) + NCBI BLAST REST |
+| Workflows | Prefect 3.x (multi-step pipelines) |
+| Proxy | Caddy 2 (auto-HTTPS via Let's Encrypt) |
+| Deploy | Docker Compose, GitHub Actions CI/CD |
 | VPS | Ubuntu 24.04, KVM 4CPU/16GB |
+| MCP | JSON-RPC 2.0 stdio (Claude Code integration) |
 
 ## Endpoints da API
 
@@ -142,23 +154,33 @@ on:
 bioplatform/
 ├── apps/
 │   ├── api/              # FastAPI backend
-│   │   ├── main.py       # App + middleware
-│   │   ├── models.py     # SQLAlchemy models
-│   │   ├── schemas.py    # Pydantic schemas
-│   │   ├── auth.py       # JWT + dependencies
-│   │   ├── database.py   # Async engine
-│   │   ├── config.py     # Settings
-│   │   └── routers/      # auth, sequences, blast, admin
-│   └── worker/           # BLAST async processor
+│   │   ├── main.py       # App + middleware + lifespan
+│   │   ├── models.py     # SQLAlchemy models (Sequence, Job, Result, Provenance)
+│   │   ├── schemas.py    # Pydantic schemas (request/response)
+│   │   ├── auth.py       # JWT + bcrypt + dependencies
+│   │   ├── database.py   # Async engine (pool_size=5, max_overflow=10)
+│   │   ├── config.py     # Settings via pydantic-settings
+│   │   └── routers/      # auth, sequences, blast, admin, regulatory
+│   ├── worker/           # arq BLAST async processor
+│   └── workflows/        # Prefect flows + tasks
+│       ├── flows/        # protein_report (multi-step pipeline)
+│       └── tasks/        # blast, annotation, literature, report
 ├── mcp_servers/          # MCP servers para Claude Code
-│   ├── bio_science_mcp.py
-│   └── adapters/         # pubmed, uniprot, interpro, blast...
+│   ├── bio_science_mcp.py  # JSON-RPC 2.0 dispatcher
+│   ├── cache.py          # Redis caching layer (@cached decorator)
+│   └── adapters/         # pubmed, uniprot, interpro, alphafold, string, blast, esm
+├── services/
+│   ├── biosafety/        # Select Agents screening (CDC/USDA)
+│   └── regulatory_assist/ # Geração de documentos GxP (ICH/Anvisa)
+├── skills/               # Protocolos institucionais para Claude Code
+│   ├── protocols/        # BLAST, caracterização, literatura
+│   ├── thresholds/       # e-value, pLDDT, STRING scores (YAML)
+│   └── templates/        # Formato de relatório com proveniência
 ├── infra/
 │   ├── docker-compose.yml
 │   ├── Caddyfile
-│   └── db/migrations/    # SQL migrations
-├── .github/workflows/    # CI/CD
-└── services/             # Módulos de domínio (futuro)
+│   └── db/migrations/
+└── .github/workflows/    # CI/CD (ruff lint → SSH deploy)
 ```
 
 ## Princípios de Design
@@ -187,19 +209,22 @@ Servidores MCP para integração com Claude Code:
 |------|-------|
 | 2025-06-21 | Monorepo + API + Auth + DB + Deploy |
 | 2025-06-21 | BLAST worker + Admin panel + CI/CD |
-| 2025-06-22 | CORS fix + Frontend PT-BR + DNS |
+| 2025-06-22 | Frontend PT-BR + DNS + CORS fix |
+| 2025-06-22 | Biossegurança + Regulatório GxP + ESM3 |
+| 2025-06-22 | Cache Redis + Prefect Workflows + Skills MCP |
+| 2025-06-22 | Frontend integrado (todas as features) |
 
 ## Próximos Passos
 
 - [x] Screening de biossegurança (Select Agents CDC/USDA)
 - [x] Geração de documentos regulatórios GxP (Anvisa Sandbox)
 - [x] Adapter ESM3 para predição de mutações
+- [x] Cache Redis com TTL por adapter
+- [x] Prefect workflows (pipeline multi-step)
+- [x] Skills institucionais para Claude Code
 - [ ] Visualização 3D de proteínas (3Dmol.js)
 - [ ] Classificação filogenética
-- [ ] Multi-ômica espacial e grafos de conhecimento
-- [ ] Integração Prefect (DAGs Python nativos)
-- [ ] Redis vetorial (embeddings + cache de contexto MCP)
-- [ ] Skills institucionais para Claude Code
+- [ ] Multi-ômica espacial e grafos de conhecimento (pgvector)
 - [ ] Mapeamento geográfico de organismos
 - [ ] Reações bioquímicas (KEGG)
 - [ ] Submissão no Sandbox Regulatório Anvisa
