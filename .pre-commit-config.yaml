@@ -1,0 +1,81 @@
+# Pre-commit hooks for bioplatform — enforce schema, Markdown, and code quality
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # YAML / JSON Schema validation for Obsidian frontmatter
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.31.3
+    hooks:
+      - id: check-metaschema
+        files: ^wiki/schema/.*\.json$
+      - id: check-jsonschema
+        name: "Validate YAML frontmatter against schema"
+        files: ^wiki/.*\.md$
+        args:
+          - "--schemafile"
+          - "wiki/schema/frontmatter-schema.json"
+          - "--format"
+          - "yaml"
+        # Extracts YAML frontmatter from Markdown files via custom pre-commit mirror
+        # Fallback: run check-jsonschema directly on extracted YAML blocks
+
+  # Markdown linting (CLI2 — fast, configurable)
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.17.2
+    hooks:
+      - id: markdownlint-cli2
+        args:
+          - "--config"
+          - ".markdownlint.json"
+        # Only lint wiki/ and docs/ — never touch raw/
+        files: ^(wiki/|docs/).*\.md$
+
+  # Python code style (for embedded scripts in infra/tools)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.9
+    hooks:
+      - id: ruff
+        args: ["--fix", "--config", "ruff.toml"]
+        files: ^(infra/|tools/|services/).*\.py$
+      - id: ruff-format
+        files: ^(infra/|tools/|services/).*\.py$
+
+  # Frontmatter formatting (auto-format YAML frontmatter in Markdown)
+  - repo: local
+    hooks:
+      - id: mdformat-frontmatter
+        name: Format YAML frontmatter
+        entry: mdformat
+        language: python
+        additional_dependencies:
+          - mdformat-frontmatter
+        args: ["--check"]
+        files: ^wiki/.*\.md$
+        types: [markdown]
+
+  # General pre-commit hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^raw/
+      - id: end-of-file-fixer
+        exclude: ^raw/
+      - id: check-yaml
+        args: ["--unsafe"]
+      - id: check-added-large-files
+        args: ["--maxkb=5000"]
+      - id: detect-private-key
+
+  # Selective execution via lint-staged (runs only on staged files)
+  - repo: local
+    hooks:
+      - id: lint-staged
+        name: lint-staged
+        entry: lint-staged
+        language: node
+        additional_dependencies:
+          - lint-staged
+        stages: [pre-commit]
+        pass_filenames: false
