@@ -4,10 +4,11 @@
 # Automatic HTTPS is enabled by default (Caddy handles certificate provisioning
 # and renewal via Let's Encrypt / ZeroSSL).
 #
-# Usage:
-#   DOMAIN=bio.example.com caddy run --config /path/to/Caddyfile
-#
-# In Docker Compose, set the DOMAIN env var in your .env file or compose config.
+# Routing order (first match wins):
+#   /health        -> direct 200
+#   /mcp/<tool>/*  -> bioinformatics MCP servers (shared bionet network)
+#   /api, /docs, /redoc, /openapi.json -> FastAPI (api:8000)
+#   everything else -> Quackai BioLab SPA (web:80, nginx static)
 
 {$DOMAIN} {
 	# --- Security headers -----------------------------------------------------
@@ -24,6 +25,55 @@
 	# --- Direct health endpoint (no upstream dependency) ----------------------
 	handle /health {
 		respond "OK" 200
+	}
+
+	# --- MCP Bioinformatics servers -------------------------------------------
+	handle_path /mcp/blast/* {
+		reverse_proxy mcp-blast:9001
+	}
+	handle_path /mcp/bwa/* {
+		reverse_proxy mcp-bwa:9002
+	}
+	handle_path /mcp/samtools/* {
+		reverse_proxy mcp-samtools:9003
+	}
+	handle_path /mcp/bcftools/* {
+		reverse_proxy mcp-bcftools:9004
+	}
+	handle_path /mcp/bedtools/* {
+		reverse_proxy mcp-bedtools:9005
+	}
+	handle_path /mcp/fastqc/* {
+		reverse_proxy mcp-fastqc:9006
+	}
+	handle_path /mcp/seqkit/* {
+		reverse_proxy mcp-seqkit:9009
+	}
+
+	# --- BioinfoMCP servers ---
+	handle_path /mcp/fastqc2/* {
+		reverse_proxy mcp-fastqc2:9101
+	}
+	handle_path /mcp/bwa2/* {
+		reverse_proxy mcp-bwa2:9102
+	}
+	handle_path /mcp/samtools2/* {
+		reverse_proxy mcp-samtools2:9103
+	}
+	handle_path /mcp/minimap2/* {
+		reverse_proxy mcp-minimap2:9104
+	}
+	handle_path /mcp/cutadapt/* {
+		reverse_proxy mcp-cutadapt:9105
+	}
+	handle_path /mcp/salmon/* {
+		reverse_proxy mcp-salmon:9106
+	}
+	handle_path /mcp/bcftools2/* {
+		reverse_proxy mcp-bcftools2:9107
+	}
+	handle_path /mcp/gatk-hc/* {
+		reverse_proxy mcp-gatk-hc:9108
 	}
 
 	# --- API, docs and OpenAPI schema -> FastAPI service ----------------------
