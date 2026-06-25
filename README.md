@@ -238,3 +238,30 @@ MIT
 ## Autor
 
 **Matheus Angolano** — [@patoangolano](https://github.com/patoangolano)
+
+---
+
+# 🧠 Wiki & Knowledge Workspace
+
+Além da plataforma bioinformática, este repositório funciona como um **sistema operacional de conhecimento** de 5 camadas:
+
+| Camada | Diretório | Propósito |
+|--------|-----------|-----------|
+| **Raw** | `raw/` | Fontes imutáveis — artigos, papers, datasets, web-clips |
+| **Wiki** | `wiki/` | Base de conhecimento markdown mantida pelo Claude |
+| **Schema** | `wiki/schema/` + `CLAUDE.md` | Regras operacionais do repositório |
+| **Operacional** | `apps/`, `services/`, `infra/`, `mcp_servers/` | Código e execução |
+| **Output** | `wiki/outputs/` + `output/` | Entregáveis duráveis |
+
+### Como usar
+
+- **`raw/` é imutável** — fontes originais nunca são modificadas
+- **`wiki/` é mantido pelo Claude** — criação, revisão, links e navegação
+- **`CLAUDE.md`** é o arquivo mestre de operação — contém regras, workflows e políticas
+- **Obsidian** é a interface de navegação primária para o wiki
+
+### Fluxos
+
+- **Ingestão:** fonte → `raw/` → inspeção → resumo em `wiki/sources/` → atualização de páginas afetadas → index + log
+- **Query:** pergunta → `wiki/index.md` → hubs relevantes → síntese → possível página durável
+- **Lint:** verificação recorrente de contradições, órfãos, links quebrados, lacunas de domínio

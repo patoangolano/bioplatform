@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bioplatform.local/frontmatter-schema.json",
+  "title": "Bioplatform Frontmatter Schema",
+  "description": "JSON Schema for Obsidian Markdown frontmatter in the bioplatform knowledge base",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Page title — must match the first H1 heading"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "URL-friendly slug in kebab-case"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "concept",
+        "source",
+        "question",
+        "output",
+        "log",
+        "hub",
+        "person",
+        "project",
+        "tool",
+        "protocol"
+      ],
+      "description": "Page type classification"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "seed",
+        "draft",
+        "active",
+        "reviewed",
+        "archived"
+      ],
+      "description": "Content lifecycle status — strictly enforced"
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Creation date (ISO 8601 YYYY-MM-DD)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Last modification date (ISO 8601 YYYY-MM-DD)"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+$"
+      },
+      "uniqueItems": true,
+      "description": "Lowercase kebab-case tags for Dataview queries"
+    },
+    "source_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of source files referenced"
+    },
+    "source_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Relative paths to source files in raw/"
+    },
+    "related_pages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "uniqueItems": true,
+      "description": "Slugs of related wiki pages (bidirectional backlinks)"
+    }
+  },
+  "required": [
+    "title",
+    "slug",
+    "type",
+    "status",
+    "created",
+    "updated"
+  ],
+  "additionalProperties": false
+}
