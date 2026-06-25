@@ -26,8 +26,9 @@
 		respond "OK" 200
 	}
 
-	# --- Reverse proxy to API service -----------------------------------------
-	handle {
+	# --- API, docs and OpenAPI schema -> FastAPI service ----------------------
+	@api path /api/* /docs /docs/* /redoc /redoc/* /openapi.json
+	handle @api {
 		reverse_proxy api:8000 {
 			# Pass original host and client IP
 			header_up X-Real-IP {remote_host}
@@ -37,6 +38,14 @@
 			health_uri /health
 			health_interval 30s
 			health_timeout 5s
+		}
+	}
+
+	# --- Everything else -> Quackai BioLab SPA (static, served by nginx) -------
+	handle {
+		reverse_proxy web:80 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Proto {scheme}
 		}
 	}
 

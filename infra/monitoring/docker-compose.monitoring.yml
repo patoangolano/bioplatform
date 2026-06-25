@@ -1,0 +1,90 @@
+# Observability stack for bioplatform — Prometheus + Grafana + exporters.
+#
+# Separate from the core compose so it can be brought up/down independently and
+# never risks the production app deploy. Joins the existing `bioplatform_bionet`
+# network (external) so Prometheus can scrape the app containers by name.
+#
+# Bring up (on the VPS, after the core stack is running):
+#   docker compose -f infra/monitoring/docker-compose.monitoring.yml --env-file .env up -d
+#
+# Security: Grafana and Prometheus are bound to 127.0.0.1 only. Access Grafana
+# via SSH tunnel:  ssh -L 3000:127.0.0.1:3000 root@187.77.232.5  then open
+# http://localhost:3000  (admin / ${GRAFANA_ADMIN_PASSWORD}).
+
+services:
+  # ─── Prometheus — metrics collection & storage ──────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: monitoring-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "127.0.0.1:9090:9090"
+    restart: unless-stopped
+    networks:
+      - bionet
+
+  # ─── Grafana — dashboards ───────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: monitoring-grafana
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+    networks:
+      - bionet
+
+  # ─── node-exporter — host CPU/RAM/disk/network metrics ──────────────────────
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: monitoring-node-exporter
+    command:
+      - "--path.rootfs=/host"
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    restart: unless-stopped
+    networks:
+      - bionet
+
+  # ─── cAdvisor — per-container resource metrics ──────────────────────────────
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: monitoring-cadvisor
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    restart: unless-stopped
+    networks:
+      - bionet
+
+networks:
+  bionet:
+    external: true
+    name: bioplatform_bionet
+
+volumes:
+  prometheus_data:
+  grafana_data:

@@ -1,0 +1,25 @@
+# Prometheus scrape configuration for bioplatform observability.
+# Host metrics via node-exporter, per-container metrics via cAdvisor.
+# (App-level /metrics from the FastAPI service is a follow-up: add
+#  prometheus-fastapi-instrumentator and a scrape job for api:8000.)
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: bioplatform
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels:
+          host: vps-hostinger
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]

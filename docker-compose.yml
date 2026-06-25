@@ -85,8 +85,27 @@ services:
     networks:
       - bionet
 
+  # ─── Web Frontend ─────────────────────────────────────────────────────────
+  # Quackai BioLab SPA (React/Vite build served as static files by nginx)
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - bionet
+
   # ─── Caddy ──────────────────────────────────────────────────────────────────
-  # Reverse proxy with automatic HTTPS via Let's Encrypt
+  # Reverse proxy with automatic HTTPS via Let's Encrypt.
+  # Routes /api, /docs, /redoc, /openapi.json -> api:8000; everything else -> web:80
   caddy:
     image: caddy:2-alpine
     ports:
@@ -100,6 +119,7 @@ services:
       - .env
     depends_on:
       - api
+      - web
     restart: unless-stopped
     networks:
       - bionet
