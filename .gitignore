@@ -45,6 +45,9 @@ node_modules/
 *.key
 secrets/
 
+# Obsidian vault config (data.json contém apiKey do Local REST API)
+.obsidian/
+
 # Local Claude/MCP config
 .mcp.json
 .claude/
