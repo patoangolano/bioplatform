@@ -58,14 +58,25 @@ jobs:
           username: ${{ env.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd ${{ env.DEPLOY_PATH }}
-            git pull origin main
+            if [ -d "${{ env.DEPLOY_PATH }}" ]; then
+              cd ${{ env.DEPLOY_PATH }}
+              git pull origin main || git clone https://github.com/patoangolano/bioplatform.git .
+            else
+              mkdir -p ${{ env.DEPLOY_PATH }}
+              git clone https://github.com/patoangolano/bioplatform.git ${{ env.DEPLOY_PATH }}
+              cd ${{ env.DEPLOY_PATH }}
+            fi
+            # Ensure .env exists
+            if [ ! -f .env ]; then
+              cp .env.example .env 2>/dev/null || true
+            fi
+            # Run migrations
             for f in infra/db/migrations/*.sql; do
               docker compose exec -T postgres psql -U bio -d biodb < "$f" 2>/dev/null || true
             done
+            # Build and deploy
             docker compose build --parallel
-            docker compose up -d
-            docker compose up -d web
+            docker compose up -d --force-recreate
             sleep 15
             docker compose ps
             echo "Deploy done at $(date)"
