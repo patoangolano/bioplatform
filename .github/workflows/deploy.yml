@@ -33,6 +33,17 @@ jobs:
           pip install pyright
           cd apps/api && pyright --verifytypes models schemas || true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend
+        run: |
+          cd apps/web
+          npm ci
+          npm run build
+
   deploy:
     needs: test
     runs-on: ubuntu-latest
@@ -47,23 +58,13 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd ${{ env.DEPLOY_PATH }}
-
-            # Pull latest code
             git pull origin main
-
-            # Run any new migrations
             for f in infra/db/migrations/*.sql; do
               docker compose exec -T postgres psql -U bio -d biodb < "$f" 2>/dev/null || true
             done
-
-            # Build and deploy
             docker compose build --parallel
             docker compose up -d
-
-            # Wait for health check (API is inside docker network)
+            docker compose up -d web
             sleep 15
-            docker compose exec -T api curl -f http://localhost:8000/health || \
-              curl -f http://localhost:80/health || \
-              echo "Warning: health check skipped"
-
-            echo "Deploy successful at $(date)"
+            docker compose ps
+            echo "Deploy done at $(date)"
