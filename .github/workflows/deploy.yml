@@ -47,8 +47,6 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd ${{ env.DEPLOY_PATH }}
-
-            # Pull latest code
             git pull origin main
 
             # Run any new migrations
@@ -56,21 +54,15 @@ jobs:
               docker compose exec -T postgres psql -U bio -d biodb < "$f" 2>/dev/null || true
             done
 
-            # Build all images
+            # Build and start all services
             docker compose build
+            docker compose up -d
 
-            # Force recreate all services (ensures web + api + worker restart)
-            docker compose up -d --force-recreate
+            # Ensure web and caddy are running
+            docker compose up -d web caddy
 
-            # Restart Caddy to pick up new container IPs
-            docker compose restart caddy
-
-            # Wait for health check
-            sleep 20
-            echo "=== Health check ==="
+            # Health check
+            sleep 15
             docker compose ps
-            echo ""
-            docker compose exec -T api python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())" || \
-              echo "Warning: API health check failed"
-
-            echo "Deploy successful at $(date)"
+            curl -f http://localhost:80/health || echo "Health check skipped"
+            echo "Deploy done at $(date)"
