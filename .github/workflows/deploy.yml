@@ -47,23 +47,30 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd ${{ env.DEPLOY_PATH }}
-            
+
             # Pull latest code
             git pull origin main
-            
+
             # Run any new migrations
             for f in infra/db/migrations/*.sql; do
               docker compose exec -T postgres psql -U bio -d biodb < "$f" 2>/dev/null || true
             done
-            
-            # Build and deploy
-            docker compose build --parallel
-            docker compose up -d
 
-            # Wait for health check (API is inside docker network)
-            sleep 15
-            docker compose exec -T api curl -f http://localhost:8000/health || \
-              curl -f http://localhost:80/health || \
-              echo "Warning: health check skipped"
+            # Build all images
+            docker compose build
+
+            # Force recreate all services (ensures web + api + worker restart)
+            docker compose up -d --force-recreate
+
+            # Restart Caddy to pick up new container IPs
+            docker compose restart caddy
+
+            # Wait for health check
+            sleep 20
+            echo "=== Health check ==="
+            docker compose ps
+            echo ""
+            docker compose exec -T api python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())" || \
+              echo "Warning: API health check failed"
 
             echo "Deploy successful at $(date)"
